@@ -1,3 +1,6 @@
+<!-- markdownlint-disable-next-line MD041 -->
+![Runtime Security Field Guide cover: evidence moving from source to build, deploy, and runtime](assets/runtime-security-cover.gif)
+
 # Runtime Security Field Guide
 
 An evidence-led, vendor-neutral guide for reviewing runtime security across application hosts, containers, CI workers, language environments, and database connections.
