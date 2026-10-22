@@ -264,6 +264,43 @@ during a planned rotation when the provider requires overlap, and validate:
 
 Never paste connection strings; use a least-privilege test account where possible.
 
+### 8a. PostgreSQL upgrades: collation and replication are separate checks
+
+After a PostgreSQL, operating-system, or locale-provider upgrade, check the
+database default collation as well as named collations. A named-collation query
+can report no drift while the database default (`pg_catalog.default`) has a
+stored collation version different from the provider's current version. Inspect
+the database provider, locale, stored and actual versions, then identify valid,
+ready indexes that use the database default, including constraint-backed
+indexes. [Database catalog](https://www.postgresql.org/docs/17/catalog-pg-database.html)
+and [collation catalog](https://www.postgresql.org/docs/17/catalog-pg-collation.html)
+describe the fields and version checks.
+
+Plan any rebuild with the owning database role, available disk, lock and
+statement limits, partition layout, and a tested stop condition. Rebuild each
+affected index before running `ALTER DATABASE ... REFRESH COLLATION VERSION`;
+that command records the provider version and must not be used to hide a
+warning. `REINDEX ... CONCURRENTLY` has documented eligibility and transaction
+limits, and provider-owned objects may require a provider procedure rather than
+customer grants or ownership changes. Abort on a failed rebuild and record
+invalid or temporary index artifacts for repair. [REINDEX](https://www.postgresql.org/docs/17/sql-reindex.html)
+and [ALTER DATABASE](https://www.postgresql.org/docs/17/sql-alterdatabase.html)
+define these boundaries.
+
+If logical replication crosses the upgrade, treat it as a separate release
+boundary: record the intended publications, subscriptions or replicas, initial
+copy policy, replication state, and post-upgrade catch-up evidence. Do not
+infer replica consistency from a primary health check. [Logical replication](https://www.postgresql.org/docs/17/logical-replication.html)
+has the compatibility and operational model.
+
+For database TLS evidence, use the actual configured client rather than a
+nearby shell client. With JDBC, make an uncached read-only observation through
+the deployed JDBC path and record the returned server identity separately from
+the host that ran the client. A cached query result is not proof that the live
+managed endpoint is the one observed; use the client's documented cache-bypass
+mechanism or a unique audit comment, without logging connection details. See
+the [database TLS guide](database-tls.md) for strict connection controls.
+
 ## 9. Build, deploy, and prove the rollout
 
 Use the project's exact release gates. Typical gates are dependency consistency,

@@ -139,6 +139,14 @@ and never inherited by a deployment task.
 | Server view | `pg_stat_ssl` during the test | client backend reports `ssl = true` for that observed session/leg |
 | Rollout | replacement process/task identity and startup logs, followed by health check | new process uses the intended configuration and health check succeeds |
 
+When the production entry point is a JDBC client, run the read-only observation
+through that configured client and capture the database server identity, not
+only the machine that ran JDBC. For example, an approved query can return
+`current_setting('server_version')`, `current_database()`, `version()`, and
+`inet_server_addr()`. Bypass or distinguish any query cache with the client's
+documented mechanism or a unique audit comment; a cached `SELECT 1` is not
+live TLS or endpoint evidence. Keep connection details out of the record.
+
 Run the untrusted-chain control only in a lab or against an endpoint you own,
 with the matching hostname and a well-formed unrelated CA or lab issuer. A
 missing or invalid CA file is not an untrusted-chain control. A wrong-hostname
