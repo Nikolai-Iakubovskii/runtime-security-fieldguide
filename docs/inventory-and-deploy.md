@@ -276,6 +276,8 @@ indexes. [Database catalog](https://www.postgresql.org/docs/17/catalog-pg-databa
 and [collation catalog](https://www.postgresql.org/docs/17/catalog-pg-collation.html)
 describe the fields and version checks.
 
+Separate partitioned index parents (`relkind = I`) from physical leaf indexes. Verify parent definitions and the partition tree, and require physical rebuild evidence for every affected leaf. Use `pg_relation_filenode()` when checking physical files; a zero raw `relfilenode` alone does not prove a rebuild. See the [pg_class](https://www.postgresql.org/docs/17/catalog-pg-class.html) catalog.
+
 Treat a `NULL` stored or actual version as not recorded, not as evidence of no
 drift; a provider can lack a tracked version. Record `datlocprovider` with
 `datcollate` and `datctype` for libc, or the provider locale and rules for ICU.
