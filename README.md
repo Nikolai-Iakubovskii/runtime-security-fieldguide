@@ -87,6 +87,12 @@ This snapshot cannot prove the absence of historical compromise. An audit is lim
 
 This field guide was prompted by a community-maintained [security advisory checklist](https://gist.github.com/sw1pp3r/4339837024092fea968a21c148bdd1dc). The checklist is a starting point only, not a primary authority; this repository contains no copied checklist content.
 
+## Author
+
+Maintained by [Nikolai Iakubovskii](https://github.com/Nikolai-Iakubovskii).
+
+[Telegram](https://t.me/sexyllm) · [X (Twitter)](https://x.com/yak_niko) · [LinkedIn](https://www.linkedin.com/in/nikolai-iakubovskii/)
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
