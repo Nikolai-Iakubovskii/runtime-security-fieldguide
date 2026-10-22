@@ -4,7 +4,8 @@ This guide turns a security advisory into a bounded, reviewable remediation.
 It is a checklist, not a claim that a version scan proves a system is safe.
 
 Related documents: [trust stores](trust-stores.md), [database TLS](database-tls.md),
-and [October 2026 advisories](october-2026-advisories.md).
+[dependency security coverage](dependency-security.md), [conditional service
+hardening](service-hardening.md), and [October 2026 advisories](october-2026-advisories.md).
 
 ## 1. Establish scope before touching anything
 
@@ -126,6 +127,35 @@ copy, and confirm that a real job starts with the new distribution. Do not
 substitute an embedded runtime binary by hand unless the vendor explicitly
 documents that operation.
 
+## 4a. Dependency coverage, lifecycle, and recurring review
+
+The dependency review is incomplete until every application, worker, build root,
+and delivered artifact appears in the mandatory coverage matrix in
+[dependency security coverage](dependency-security.md). Include every source
+root, lockfile or resolved inventory, direct and transitive graph scope,
+production/development/build/CI classification, audit tool and version,
+advisory-data time, final build or image digest, and coverage gap.
+
+Review source resolution and the final installed artifact or image separately.
+A successful source scan does not establish the dependency state of a released
+image, virtual environment, OS package layer, or copied application tree. Mark
+unsupported formats, unavailable transitive resolution, missing images, and
+unknown deployed digests as `unknown`, not clean.
+
+Record security-support end dates from the component's primary lifecycle source,
+the date checked, and a migration owner and deadline. Use the distributor's
+advisory evidence to distinguish an upstream fixed version from a supported
+distribution backport. Keep security alerts and security updates separate from
+regular version updates; review available pull-request dependency checks where
+the platform supports them. Coverage failures or alerts without an approved and
+verified fix remain open.
+
+Assign an owner, policy cadence, last successful review, and next review for
+dependency graphs, released images, deployed runtimes, and trust stores. A
+weekly cadence is a recommendation, not a vendor requirement. Do not configure
+automation from inventory evidence alone; record or propose it, or configure it
+when the owner has authorized that configuration change.
+
 ## 5. Python: environments and certificates
 
 Inspect Python environments without importing unknown packages first. Static
@@ -226,9 +256,11 @@ Use an official regional/provider CA bundle, retain the current and next CA
 during a planned rotation when the provider requires overlap, and validate:
 
 1. A minimal query through the real application configuration succeeds.
-2. A deliberately wrong hostname fails with a hostname-validation error.
-3. Migration and worker paths use the same strict policy.
-4. The deployed task definition or service configuration retains the setting.
+2. A deliberately untrusted certificate chain for the matching hostname fails.
+3. A deliberately wrong hostname fails with a hostname-validation error.
+4. The normal minimal query succeeds again after the controlled negative tests.
+5. Migration and worker paths use the same strict policy.
+6. The deployed task definition or service configuration retains the setting.
 
 Never paste connection strings; use a least-privilege test account where possible.
 
@@ -267,6 +299,20 @@ After an approved production deployment, verify all of the following:
 
 HTTP 200 alone is not sufficient: a worker, database pool, or warehouse may fail.
 Do not restart production merely to gather evidence; require authorization and rollback.
+
+## 9a. Conditional service and container hardening
+
+When services, containers, task definitions, or workload configuration are in
+scope, perform the read-only review in [conditional service hardening](service-hardening.md).
+Capture evidence for the effective UID, privileged mode, capabilities, host
+mounts and engine socket, read-only root-filesystem compatibility and writable
+locations, and effective cloud/task IAM permissions. Source manifests or role
+names alone do not prove deployed settings; vendor-managed controls that cannot
+be observed remain `unknown`.
+
+An approved hardening change requires compatibility and health evidence,
+rollback readiness, and the deployed revision or digest. Run controlled tests
+only in owner-authorized environments.
 
 ## 10. Backups, routes, and recovery evidence
 

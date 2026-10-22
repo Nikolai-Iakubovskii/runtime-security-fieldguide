@@ -20,6 +20,8 @@ This is a documentation repository. It provides a repeatable audit method, repor
 - Trust stores: operating-system, language, application, container-image, and database-client certificate bundles.
 - Database TLS: encrypted transport, certificate-chain validation, hostname validation, and fail-closed configuration.
 - Advisories and provenance: primary vendor sources, fixed versions, supported release lines, package signatures, digests, and source dates.
+- Dependency coverage and lifecycle: every source root, resolved graph, final artifact, support end date, and recurring review evidence.
+- Conditional service hardening: effective workload identity, privileges, capabilities, mounts, filesystems, and cloud/task permissions.
 - Advisory triage and coverage gaps: exploitation evidence, patch regressions, admin surfaces, developer extensions, and MCP/connectors.
 - Evidence quality: distinguishing an installed version from the process that is actually serving traffic.
 
@@ -35,8 +37,10 @@ A useful audit answers these questions with dated evidence:
 | What is installed? | Package/runtime version and source |
 | What is running? | Process, service, image digest, task revision, or workload identity |
 | Which trust store is used? | Client configuration and the resolved CA source |
-| Does TLS reject bad certificates? | A controlled negative test and a successful normal connection |
+| Does TLS reject bad certificates? | Controlled invalid-chain and hostname-mismatch rejections, plus a successful normal connection after the tests |
 | Which advisories matter? | Primary source, affected range, fixed version, and applicability decision |
+| Are dependencies covered? | Coverage matrix for every root, graph scope, final artifact, tool/version, advisory-data time, and gaps |
+| Is the component supported? | Lifecycle source, support end date, backport evidence where applicable, migration owner, and deadline |
 | What changed? | Approved remediation, verification, rollback, and recheck trigger |
 
 ## Green means evidence, not a version number
@@ -45,7 +49,7 @@ Do not call a finding resolved merely because a package manager reports a newer 
 
 - **Installed is not running.** Confirm the launched process, service unit, container image digest, or managed workload revision.
 - **A CA file is not proof of use.** Confirm the client configuration and test the actual client path.
-- **A successful TLS connection is not enough.** Test a controlled invalid chain or hostname and verify rejection, then confirm a normal connection succeeds.
+- **A successful TLS connection is not enough.** Test controlled invalid-chain and hostname-mismatch cases, verify both are rejected, then confirm a normal connection succeeds.
 - **An image tag is not immutable.** Record the resolved digest or equivalent immutable deployment identity.
 - **CI is part of the runtime boundary.** Check runner software, embedded language runtimes, action/plugin dependencies, and worker images.
 - **Virtual environments are separate installations.** Inventory each environment that a service or scheduled job actually invokes.
@@ -55,15 +59,21 @@ Do not call a finding resolved merely because a package manager reports a newer 
 1. Define scope and authority. Keep production, development, CI, vendor-managed components, and unreachable assets distinct.
 2. Preserve baseline evidence before changing anything: versions, running identities, hashes, manifests, TLS settings, and health state.
 3. Map advisories from primary vendor or maintainer sources to the deployed component and its actual execution path.
-4. Classify each item as fixed, affected, not applicable, unknown, or vendor-owned limitation.
-5. Propose the smallest compatible remediation with rollback steps. Do not apply it without the required owner authorization.
-6. Verify the deployed result and its health, then record an explicit recheck trigger such as a new vendor advisory, runtime upgrade, certificate rotation, or image rebuild.
+4. Build the dependency-coverage matrix and lifecycle record; schedule recurring graph, artifact, runtime, and trust-store reviews.
+5. Classify each item as fixed, affected, not applicable, unknown, or vendor-owned limitation.
+6. Propose the smallest compatible remediation with rollback steps. Do not apply it without the required owner authorization.
+7. Verify the deployed result and its health, then record an explicit recheck trigger such as a new vendor advisory, runtime upgrade, certificate rotation, or image rebuild.
 
 ## Documentation map
 
 - [Inventory and deployment evidence](docs/inventory-and-deploy.md)
+- [Dependency security coverage and lifecycle](docs/dependency-security.md)
+- [Conditional service and container hardening](docs/service-hardening.md)
 - [Trust-store verification](docs/trust-stores.md)
 - [Database TLS verification](docs/database-tls.md)
+- [Secrets review](docs/secrets.md)
+- [Application security review](docs/application-security.md)
+- [Mobile security review](docs/mobile-security.md)
 - [October 2026 advisory research notes](docs/october-2026-advisories.md)
 - [Advisory triage, coverage gaps, and patch regression](docs/advisory-triage.md)
 - [Audit report template](templates/audit-report.md)

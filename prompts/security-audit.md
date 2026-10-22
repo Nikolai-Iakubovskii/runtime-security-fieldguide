@@ -1,6 +1,6 @@
 # Runtime Security Audit Prompt
 
-Use this prompt as a scoped, evidence-first request for an engineer or coding agent. The full guide is available at <https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide>; consult its [inventory and deployment evidence](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/inventory-and-deploy.md), [trust-store verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/trust-stores.md), [database TLS verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/database-tls.md), [October 2026 advisory snapshot](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/october-2026-advisories.md), and [advisory triage and coverage gaps](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/advisory-triage.md) when they apply.
+Use this prompt as a scoped, evidence-first request for an engineer or coding agent. The full guide is available at <https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide>; consult its [inventory and deployment evidence](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/inventory-and-deploy.md), [dependency security coverage](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/dependency-security.md), [conditional service hardening](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/service-hardening.md), [trust-store verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/trust-stores.md), [database TLS verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/database-tls.md), [secrets review](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/secrets.md), [application security review](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/application-security.md), [mobile security review](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/mobile-security.md), [October 2026 advisory snapshot](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/october-2026-advisories.md), and [advisory triage and coverage gaps](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/advisory-triage.md) when they apply.
 
 ---
 
@@ -28,6 +28,37 @@ For each in-scope application, worker, container, host, and CI runner, record bo
 - OS, language, application, container, and database-client trust stores.
 
 Do not equate an installed package with a running process, an image tag with a digest, or the presence of a CA file with a client actually using it.
+
+## Dependency coverage and lifecycle
+
+Complete the coverage matrix in `docs/dependency-security.md` for every source
+root, lockfile or resolved inventory, dependency scope, final artifact or image,
+and deployed digest. Record direct and transitive coverage separately across
+production, development, build, and CI; include audit tool/version and the time
+advisory data was checked. Review source graphs and final installed artifacts or
+images separately. Unsupported lockfiles, missing roots, unresolved transitive
+dependencies, unavailable artifacts, and unknown deployment identities are
+coverage gaps, not clean results.
+
+For each security-relevant component, record support status, security-support
+end date, lifecycle source and checked date, upstream fix or supported-distro
+backport evidence, migration owner, and deadline. Require recurring evidence for
+dependency graphs and alerts, security updates, regular version updates, and
+pull-request dependency review where available, plus released images, runtimes,
+and trust stores. Record owner, policy cadence, last success, and next run. A
+weekly cadence is a recommendation only. Inventory may record or propose
+automation; configure it only under the owner's existing authorization for that
+configuration change.
+
+## Conditional modules
+
+For each module, state `applicable`, `not applicable`, or `unknown`, with scope
+and evidence: dependency security, service/container hardening, secrets,
+application security, and mobile security. Do not mark a module not applicable
+without the bounded rationale. For service/container hardening, review actual
+deployed UID, privileged mode, capabilities, mounts and engine socket,
+read-only-root compatibility and writable paths, and effective cloud/task IAM
+permissions. Controlled tests require an owner-authorized environment.
 
 ## Advisory research
 
@@ -78,7 +109,7 @@ For a compromised bootstrap path, obtain fixes through an independently trusted 
 
 ## Report format
 
-Use `templates/audit-report.md`. For every finding include: ID, scope, baseline, deployed runtime, CA/trust source, advisory/exploitation status and window, regression state, coverage owner, evidence, source, finding, status, fix owner, rollback, and recheck trigger. Timestamp all evidence. Clearly distinguish:
+Use `templates/audit-report.md`. Start with `Fix now`, `Plan`, and `Unable to verify`. For every finding include: ID, scope, baseline, deployed runtime, CA/trust source, advisory/exploitation status and window, regression state, coverage owner, evidence, source, priority and reason, status, fix owner, due date, rollback, and recheck trigger. Record accepted-risk approver, rationale, and review date. Capture the coverage matrix, lifecycle support dates, recurring-review evidence, and conditional-module status. Timestamp all evidence. Clearly distinguish:
 
 - fixed and verified;
 - affected but not yet fixed;

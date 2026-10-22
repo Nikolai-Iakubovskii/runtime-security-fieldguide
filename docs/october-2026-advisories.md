@@ -16,14 +16,14 @@ proof-of-concept code, or delete suspected malware before preserving evidence.
 
 | Topic | Affected scope | Verified remediation floor or action | Primary source | Verification needed |
 | --- | --- | --- | --- | --- |
-| PHP CVE-2026-109618 / CVE-2026-109619 | PHP handling requests | 8.2.35, 8.3.36, 8.4.27, 8.5.12 | [PHP release notice](https://www.php.net/archive/2026.php#2026-10-21-5) | Running FPM/Apache module/container version and distro backport status |
+| PHP CVE-2026-109618 / CVE-2026-109619 | PHP handling requests | 8.2.35, 8.3.36, 8.4.27, 8.5.12 | [PHP release notice](https://www.php.net/archive/2026.php#2026-10-21-5) | Running FPM/Apache module/container version, distro backport status, and retrospective evidence review |
 | Node.js October release | Supported 22.x, 24.x, 26.x lines | 22.23.4, 24.22.1, 26.12.1 | [Node.js advisory](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) | Every runtime: host, container, CI runner, bundled CLI/Electron app |
-| eMudhra intermediate compromise | Clients trusting affected intermediates and bundled Python trust stores | Update client trust data or apply vendor-supported blocklist; see packaging floors below | [Incident checker](https://emudhra.we-have-a-problem.com/) | Each client’s TLS trust decision; 12-chain test plus a benign control |
+| eMudhra intermediate compromise | Clients trusting affected intermediates and bundled Python trust stores | Update client trust data or apply vendor-supported blocklist; see packaging floors below | [Incident checker](https://emudhra.we-have-a-problem.com/) | Each client’s TLS trust decision for every chain in the current published list, plus controls |
 | LiteLLM supply-chain incident | PyPI or container artifacts in the stated window | Do not run affected environment; rebuild from a known-good pinned release | [LiteLLM incident report](https://docs.litellm.ai/blog/security-incident-oct-21-2026) | Filesystem/image metadata, deployment logs, and reachable credentials |
 | GitLab self-managed | GitLab CE/EE, not GitLab.com | 18.11.13, 19.0.10, 19.1.9, 19.2.9, 19.3.6, 19.4.3, 19.5.1 | [GitLab patch release](https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-5-1-released/) | Installed edition/version, exposed services, migration plan |
 | nginx | nginx builds and relevant configuration | 1.30.6 stable or 1.31.7 mainline upstream | [nginx advisories](https://nginx.org/en/security_advisories.html) | Distribution backports and directives/modules in use |
 | Apache HTTP Server | httpd 2.4 deployments | 2.4.69 upstream | [Apache vulnerability list](https://httpd.apache.org/security/vulnerabilities_24.html) | Installed package/build and enabled modules |
-| UpdraftCentral | WordPress sites connected to the service | UpdraftPlus 1.26.13 or 2.26.13; investigate separately | [Updraft incident notice](https://teamupdraft.com/blog/security-incident-october-2026/) | Connected sites, plugin inventory including MU-plugins, admin and file evidence |
+| UpdraftCentral | TeamUpdraft account holders; cloud-connected sites; Premium sites even without known UpdraftCentral use | UpdraftPlus 1.26.13 or 2.26.13; investigate separately | [Updraft incident notice](https://teamupdraft.com/blog/security-incident-october-2026/) | Account-credential reset; plugin/user checks including MU-plugins; admin and file evidence |
 | Rank Math PRO | Downloads or activations in the affected interval | 3.0.124 or later plus incident response when exposed | [Rank Math notice](https://rankmath.com/kb/pro-3-0-123-security-incident/) | Acquisition time, installed files, database and secret exposure |
 | n8n self-hosted | n8n instances under operator control | 1.123.85, 2.43.5, or 2.44.1 | [n8n community security update](https://community.n8n.io/t/security-update-14-october-2026/321284) | Current upstream release note and installed version; community post is vendor-hosted but not a CVE advisory |
 | AOMEI Backupper / AnyViewer | Windows endpoints where installed or historically installed | Preserve evidence and follow the investigation guidance | [Google Threat Intelligence report](https://cloud.google.com/blog/topics/threat-intelligence/investigating-ephemeral-supply-chain-tampering) | Product history, timestamps, indicators, and recovery plan; vendor remediation status is unverified here |
@@ -51,6 +51,18 @@ Verify the version of the process actually serving traffic after rollout. Check
 the PHP SAPI, worker pool, container image digest, and restart state; a shell
 `php -v` alone does not prove the web workers changed.
 
+### PHP2Shell exploitation observed before disclosure
+
+AWS Threat Intelligence reports PHP2Shell exploitation attempts on 2026-10-17,
+before public disclosure. Investigate from at least 2026-10-17 through
+remediation by reviewing retained logs, process evidence, and relevant file
+changes through the incident-response process without executing suspect material.
+Extend the review earlier when available evidence or updated source material
+requires it. October 17 is the earliest vendor-observed attempt, not proof that
+earlier exploitation did not occur. Record unavailable or expired retention as
+unknown. Applying a patch does not establish that prior exploitation did not
+occur. Source checked 2026-10-22: [AWS report](https://aws.amazon.com/blogs/security/amazon-threat-intelligence-identifies-php2shell-exploitation-prior-to-public-disclosure-in-madpot/).
+
 ## 2. Node.js October security release
 
 Node.js published fixes for ten issues across the supported 22.x, 24.x, and 26.x
@@ -64,49 +76,61 @@ should be migrated rather than treated as patched by these floors.
 
 ## 3. eMudhra compromised intermediates
 
-The incident checker describes compromised private keys for eight eMudhra
-intermediates. Trust stores and runtimes that have not received a blocklist or
-trust-store update can accept chains created under those intermediates.
+The incident checker records that two additional No CT chains were added on
+2026-10-22. Its current list and chain archive contained fourteen hosts/chains
+on that date. Trust stores and runtimes that have not received a blocklist or
+trust-store update can accept chains created under affected intermediates.
 
-Test every TLS client separately. A successful connection to one of the 12
-checker chains means that client still accepts that chain; a certificate error
-rejects that chain only. Timeouts, proxy errors, and unrelated TLS failures are
-inconclusive. Always include a normal HTTPS control such as `example.com`.
+Test every TLS client separately against every chain in the current published
+list; record the retrieval date and the published-list version or archive hash
+when available. A successful connection means that client accepts that chain.
+A certificate or CT failure can reject a chain even when its intermediate remains
+trusted, so record the rejection reason per chain. Timeouts, proxy errors, and
+unrelated TLS failures are inconclusive. Always include a normal HTTPS control
+such as `example.com`.
 
-The 12-chain test covers TLS validation only. It does not establish code-signing
-behavior, prove a historical connection was clean, or prove absence of a
-man-in-the-middle attack. Prefer the client vendor’s update; use a documented
-vendor workaround only with a pinned checksum and an additive merge that retains
-existing blocked entries.
+This test covers TLS validation only. It does not establish code-signing behavior,
+prove a historical connection was clean, or prove absence of a man-in-the-middle
+attack. A client that accepts any published compromised chain fails the control.
+Prefer the client vendor’s update; use a documented vendor workaround only with
+a pinned checksum and an additive merge that retains existing blocked entries.
 
 Python packaging has several independent trust copies. The Python security
 announcement recommends `certifi` 2026.10.19 as the compatibility floor after
 the initial 2026.10.18 removal, and lists `pip` 26.2.2, `uv` 0.13.4,
-`sigstore` 4.5.1, and `pixi` 0.82.1 as incident-release floors. Updating an
-external `certifi` package or the operating-system store does not demonstrate
-that pip is fixed: pip vendors its own copy.
+`sigstore` 4.5.1, and `pixi` 0.82.1 as incident-release floors. Where Conda is
+used, require Conda 26.9.4. Updating an external `certifi` package or the
+operating-system store does not demonstrate that pip is fixed: pip vendors its
+own copy.
 
 Inspect suspect environments from a trusted clean runtime before starting them.
 New virtual environments, `ensurepip`, cached wheels, base images, bootstrap
 artifacts, and old image layers can reintroduce a pre-fix bundled trust store.
-After update or rebuild, repeat both the compromised-chain rejection test
-(controlled negative) and a benign HTTPS control (positive) from each client
-that will run in production.
+After update or rebuild, repeat the compromised-chain rejection test (controlled
+negative) and a benign HTTPS control (positive) from each actual production
+client path and route.
 
 ## 4. LiteLLM 1.107.0 artifact compromise
 
-LiteLLM states that `litellm==1.107.0` wheels were malicious on PyPI from
-11:39 to 13:23 UTC on 2026-10-21. Its Docker and GHCR tags `v1.107.0`, `latest`,
-`main-latest`, and `main-stable` also pointed to compromised artifacts during
-the stated incident window. The vendor says the matching source tag was not the
-malicious artifact.
+LiteLLM reports the following confirmed affected artifacts on 2026-10-21. The
+matching source tag did not contain the malicious files.
+
+| Registry | Confirmed affected artifact | Affected interval (UTC) |
+| --- | --- | --- |
+| PyPI | All seven `litellm` 1.107.0 wheels | 11:39:51–13:23 |
+| Docker Hub | `v1.107.0`, `latest`, `main-latest`, `main-stable` | 11:46:56–14:20 |
+| GHCR | `v1.107.0`, `latest`, `main-latest`, `main-stable` | 11:46:56–unavailable by 13:51 |
 
 Do not start Python, `pip`, the application, or a container from a suspected
 environment merely to inspect it. On a clean host, collect static filesystem and
 image metadata, isolate the workload, preserve relevant artifacts, and rotate
-credentials reachable from that environment. Rebuild from a known-good source
-or image and pin an explicit safe version; the vendor named 1.106.2 as a
-temporary pinned option at publication time.
+credentials reachable from that environment. Match each wheel or image digest
+and hash against the vendor report, including registry, platform variant, and
+cache copy. Do not exclude an artifact because it was installed or started after
+the affected tags were removed or repointed: a known affected copy can still
+execute. Rebuild from a known-good source or image and pin an explicit safe
+version; the vendor named 1.106.2 as a temporary pinned option at publication
+time.
 
 Absence of an indicator is not proof of cleanliness. Treat a confirmed execution
 as a credential-exposure incident and follow the organization’s incident-response
@@ -155,6 +179,13 @@ Updraft reports that unauthorized use of UpdraftCentral service credentials led
 to malicious plugin installation attempts on connected sites. Updating
 UpdraftPlus to 1.26.13 or 2.26.13 disconnects prior connections, but an update
 does not remove a previously installed backdoor.
+
+All TeamUpdraft account holders should change their password and reset configured
+two-factor authentication. UpdraftPlus Premium users should inspect sites for
+unusual plugins and users even if they never knowingly used UpdraftCentral;
+prioritize cloud-connected sites. TeamUpdraft states that self-hosted
+UpdraftCentral is unaffected by this service incident, and does not state that
+all Premium installations were compromised.
 
 Preserve the site files, database, web-server logs, and plugin evidence before
 remediation. Review standard and must-use plugins, administrators, scheduled
@@ -267,6 +298,7 @@ post-compromise assessment and evidence preservation in addition to patching.
 - [PHP 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35 release notice](https://www.php.net/archive/2026.php#2026-10-21-5)
 - [PHP advisory: CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w)
 - [PHP advisory: CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp)
+- [AWS Threat Intelligence: PHP2Shell](https://aws.amazon.com/blogs/security/amazon-threat-intelligence-identifies-php2shell-exploitation-prior-to-public-disclosure-in-madpot/)
 - [Node.js October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
 - [eMudhra TLS-chain checker and incident explanation](https://emudhra.we-have-a-problem.com/)
 - [Python packaging guidance for the eMudhra incident](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576)

@@ -28,17 +28,25 @@ version, then retest when routing is available.
 Use an approved service endpoint and an approved positive-control endpoint. Do
 not scan arbitrary internet hosts.
 
-1. Record the exact executable, package build, service account, and process ID.
-2. Run a **positive control** that should succeed with normal public trust.
+1. Record the exact executable, package build, service account, process ID, and
+   actual production route.
+2. Run a **distinct positive baseline** that should succeed with normal public
+   trust and is separate from the target.
 3. Run the approved target with normal strict verification.
-4. In a lab or against an endpoint you own, run a **negative hostname control**:
+4. In a lab or against an endpoint you own, run an **untrusted-chain negative
+   control** for the matching target hostname. Use a well-formed certificate
+   chain issued by an unrelated CA or lab issuer; do not simulate this with a
+   missing or invalid CA file. Expect a certificate-trust failure, not a DNS,
+   routing, proxy-authentication, or application-authentication failure.
+5. In a lab or against an endpoint you own, run a **negative hostname control**:
    connect to the same authorized address but supply a deliberately nonmatching
    server name. It must be rejected after the chain has already been proven
    valid. A CA or network failure is not a hostname-negative pass.
-5. Run the controls through each production egress route, proxy, and actual client
+6. Run the controls through each production egress route, proxy, and actual client
    runtime. A workstation result does not establish server or browser behavior.
-6. Restart or roll out the owning process before claiming a changed bundle is
-   active. Long-lived pools, browsers, and Electron cache certificate decisions.
+7. Restart or roll out the owning process before claiming a changed bundle is
+   active, then repeat the health check through the actual client path.
+   Long-lived pools, browsers, and Electron cache certificate decisions.
 
 A small curl control, using placeholders only:
 
@@ -53,6 +61,9 @@ as the actual service account. Shell `PATH`, login profiles, an interactive
 user, and a container entrypoint may select different binaries and bundles.
 
 ## Runtime and store inventory
+
+Every runtime row also requires the controlled untrusted-chain and wrong-name
+negative results described above, in addition to its runtime-specific criteria.
 
 | Surface | What to record | Strict pass criterion | Common bypass or caveat |
 | --- | --- | --- | --- |
@@ -73,13 +84,14 @@ user, and a container entrypoint may select different binaries and bundles.
 
 ## Incident negative-chain controls
 
-When an approved incident test manifest publishes multiple negative certificate
-chains, test **every** published chain with each in-scope client and its explicit
-bundle, alongside the positive control. Record the manifest version and result
-for each client/bundle pair. Treat a chain that cannot be fetched, parsed, or
-routed as unknown; do not count one rejected chain as coverage for the others.
-Read a manifest as data and do not execute linked JavaScript, shell commands,
-or unreviewed helper code.
+When an approved incident test list publishes multiple negative certificate
+chains, test **every** chain in the current published list with each in-scope
+client and its explicit bundle, alongside the distinct positive baseline and
+both controlled negatives. Record the retrieval date and the list version or
+archive hash when available, plus the result and rejection reason for each
+chain. Treat a chain that cannot be fetched, parsed, or routed as unknown; do
+not count one rejected chain as coverage for the others. Read a list as data and
+do not execute linked JavaScript, shell commands, or unreviewed helper code.
 
 ## Go and static binaries
 
@@ -128,9 +140,9 @@ and repository identity; do not treat a successful download as provenance.
 
 Keep a compact row per process:
 
-| Process/service account | Executable and version | Bundle/store ID | Positive | Target | Wrong-name negative | Result | Retest trigger |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `<service-account>` | `<absolute executable>` | `<bundle hash or OS store>` | pass | accepted/rejected/unknown | rejected/unknown | `<state>` | restart, bundle change, proxy change, CA rotation |
+| Process/service account | Executable and version | Bundle/store ID | Positive baseline | Target | Untrusted-chain negative | Wrong-name negative | Post-test health | Result | Retest trigger |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `<service-account>` | `<absolute executable>` | `<bundle hash or OS store>` | pass/unknown | accepted/rejected/unknown | rejected/unknown | rejected/unknown | pass/unknown | `<state>` | restart, bundle change, proxy change, CA rotation |
 
 Never include credentials, full environment dumps, private endpoints, or
 certificate private keys in the record.

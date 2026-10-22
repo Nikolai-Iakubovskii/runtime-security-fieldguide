@@ -16,7 +16,7 @@ For a network PostgreSQL connection, require all three properties:
 For libpq, use `sslmode=verify-full` and an intended `sslrootcert`. PostgreSQL
 documents that `prefer` is the default and may fall back to non-TLS; `require`
 encrypts but does not provide hostname protection; `verify-full` verifies both
-the chain and requested hostname. [libpq SSL modes](https://www.postgresql.org/docs/current/libpq-connect.html)
+the chain and requested hostname. [libpq SSL modes](https://www.postgresql.org/docs/current/libpq-ssl.html)
 
 | Setting | Encryption | Chain validation | Hostname validation | Suitable for production identity verification? |
 | --- | --- | --- | --- | --- |
@@ -78,6 +78,27 @@ AWS's PostgreSQL guidance uses `sslrootcert` with `sslmode=verify-full`; it
 also explains that RDS can require TLS with `rds.force_ssl`. [RDS PostgreSQL
 SSL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html)
 
+## Database proxies are two TLS legs
+
+Treat application-to-proxy and proxy-to-database as separate connections. Record
+the effective host, CA source, TLS policy, owner, and evidence for each leg.
+The application validates the proxy server certificate; its direct-RDS CA recipe
+does not automatically apply to an RDS Proxy endpoint. AWS states that RDS Proxy
+uses ACM certificates. Source checked 2026-10-22: [RDS Proxy TLS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.howitworks.html).
+
+For PgBouncer, use client settings to validate the proxy on the application-to-
+proxy leg. `client_tls_sslmode` governs client certificates presented to
+PgBouncer: its `verify-full` has the same behavior as `verify-ca` for client
+certificates and does not validate a database-backend hostname. On the proxy-to-
+database leg, `server_tls_sslmode=verify-full` with `server_tls_ca_file` validates
+the backend chain and name; the default `prefer` does not validate either.
+Source checked 2026-10-22: [PgBouncer configuration](https://www.pgbouncer.org/config.html).
+
+For a managed proxy-to-database leg, the vendor may own the certificate policy
+and prevent customer CA injection or negative testing in production. Record the
+available configuration and vendor evidence, and mark an untestable leg as
+unknown rather than implying a customer-controlled test occurred.
+
 ## Node.js `pg` and TypeORM
 
 `pg` passes its `ssl` object to Node TLS. Use a CA bundle and strict
@@ -110,18 +131,24 @@ and never inherited by a deployment task.
 
 | Step | Evidence | Pass criterion |
 | --- | --- | --- |
-| Inventory | process owner, executable, effective host, CA file hash, TLS settings | each production entry point is listed |
-| Positive control | authorized known-good endpoint | strict client succeeds |
+| Inventory | process owner, executable, actual route, and effective host/CA/policy for each TLS leg | each production entry point and leg is listed |
+| Positive baseline | authorized normal target through the actual client path | strict client succeeds |
 | Target chain and hostname | read-only `SELECT 1` through the real client path | strict client succeeds |
+| Untrusted-chain negative | matching hostname with a well-formed unrelated CA or lab-issued chain | fails with certificate-trust error, not DNS, routing, CA-loading, or authentication error |
 | Negative hostname | authorized same endpoint with a deliberately wrong TLS server name | fails specifically after a valid-chain baseline |
-| Server view | `pg_stat_ssl` during the test | client backend reports `ssl = true` |
-| Rollout | replacement process/task identity and startup logs | new process uses the intended configuration |
+| Server view | `pg_stat_ssl` during the test | client backend reports `ssl = true` for that observed session/leg |
+| Rollout | replacement process/task identity and startup logs, followed by health check | new process uses the intended configuration and health check succeeds |
 
-A wrong-hostname test is valid only after the positive control and target
-strict-chain test pass. If DNS, routing, CA loading, credentials, TLS protocol,
-or authentication fails first, record **unknown**, not “hostname rejected.”
-Run hostname-negative tests only against services you own or are authorized to
-test; they are a control, not an internet scan.
+Run the untrusted-chain control only in a lab or against an endpoint you own,
+with the matching hostname and a well-formed unrelated CA or lab issuer. A
+missing or invalid CA file is not an untrusted-chain control. A wrong-hostname
+test is valid only after the positive baseline and target strict-chain test pass.
+If DNS, routing, CA loading, credentials, TLS protocol, or authentication fails
+first, record **unknown**, not “hostname rejected.” Run negative controls only
+against services you own or are authorized to test; they are controls, not an
+internet scan. Do not disable verification for any control.
+After the control tests, rerun the approved health check through the actual
+deployed client path and route.
 
 A minimal read-only SQL observation, run only with approved credentials, is:
 
@@ -131,8 +158,9 @@ FROM pg_stat_ssl
 WHERE pid = pg_backend_pid();
 ```
 
-This proves that one backend is encrypted. It does not prove that the client
-verified the hostname or that all other pools and workers use the same CA.
+This proves that one observed backend session is encrypted. It does not prove
+certificate validation for either proxy leg, hostname verification, or that all
+other pools and workers use the same CA.
 
 ## Server enforcement and identity
 
@@ -152,13 +180,16 @@ Before a CA rotation:
 
 1. Obtain the new bundle from the provider's official distribution point.
 2. Record the bundle version, roots, checksum, and expiry/rotation schedule.
-3. Test strict positive, target, and wrong-name controls in a non-production
-   environment, then through each production code path during an approved
-   rollout.
+3. Test the positive baseline, target, untrusted-chain negative, and
+   wrong-name controls in a non-production environment, then through each
+   production code path and customer-testable TLS leg during an approved rollout.
+   For a managed leg without an authorized safe test, record the vendor-managed
+   evidence and an unknown verification gap.
 4. Keep verification enabled during rollback. Rolling back to
    `rejectUnauthorized:false`, `sslmode=require`, or an untracked bundle is not
    a safe rollback.
-5. Confirm the replacement process has restarted and observe `pg_stat_ssl`.
+5. Confirm the replacement process has restarted, repeat the health check through
+   the actual client path, and observe `pg_stat_ssl` where it applies.
 
 A CA bundle refresh without a process restart is incomplete for runtimes that
 load roots at startup. A successful API request does not prove migrations,
@@ -166,10 +197,13 @@ workers, or maintenance scripts adopted the new bundle.
 
 ## Completion record
 
-| Entry point | Effective hostname | CA bundle hash | Strict `SELECT 1` | Wrong-name control | `pg_stat_ssl` | Restarted | Status |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `<api-pool>` | `<db-host>` | `<sha256>` | pass/unknown | rejected/unknown | true/unknown | yes/no | accepted/rejected/unknown |
-| `<worker-or-job>` | `<db-host>` | `<sha256>` | pass/unknown | rejected/unknown | true/unknown | yes/no | accepted/rejected/unknown |
+For a vendor-managed leg without an authorized safe test, record the available
+vendor evidence and `unknown` in the affected control and status fields.
+
+| Entry point | TLS leg | Effective host | CA/policy | Owner and evidence | Positive baseline | Strict `SELECT 1` | Untrusted-chain negative | Wrong-name control | `pg_stat_ssl` | Restarted | Post-test health | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `<api-pool>` | app → proxy or DB | `<host>` | `<CA hash; verify-full>` | `<owner; config/vendor evidence>` | pass/unknown | pass/unknown | rejected/unknown | rejected/unknown | true/unknown | yes/no | pass/unknown | accepted/rejected/unknown |
+| `<proxy>` | proxy → DB | `<host>` | `<CA hash; verify-full>` | `<owner; config/vendor evidence>` | pass/unknown | pass/unknown | rejected/unknown | rejected/unknown | true/unknown | yes/no | pass/unknown | accepted/rejected/unknown |
 
 Do not record connection strings containing passwords, client private keys,
 cloud account identifiers, or private database addresses.
