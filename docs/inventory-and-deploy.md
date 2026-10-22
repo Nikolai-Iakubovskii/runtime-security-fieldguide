@@ -276,6 +276,12 @@ indexes. [Database catalog](https://www.postgresql.org/docs/17/catalog-pg-databa
 and [collation catalog](https://www.postgresql.org/docs/17/catalog-pg-collation.html)
 describe the fields and version checks.
 
+Treat a `NULL` stored or actual version as not recorded, not as evidence of no
+drift; a provider can lack a tracked version. Record `datlocprovider` with
+`datcollate` and `datctype` for libc, or the provider locale and rules for ICU.
+`C` and `POSIX` use bytewise ordering, while locale-dependent values without a
+recorded version remain untracked.
+
 Plan any rebuild with the owning database role, available disk, lock and
 statement limits, partition layout, and a tested stop condition. Rebuild each
 affected index before running `ALTER DATABASE ... REFRESH COLLATION VERSION`;
