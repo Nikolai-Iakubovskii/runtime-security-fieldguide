@@ -16,7 +16,7 @@ proof-of-concept code, or delete suspected malware before preserving evidence.
 
 | Topic | Affected scope | Verified remediation floor or action | Primary source | Verification needed |
 | --- | --- | --- | --- | --- |
-| PHP CVE-2026-109618 / CVE-2026-109619 | PHP handling requests | 8.2.35, 8.3.36, 8.4.27, 8.5.12 | [PHP release notice](https://www.php.net/archive/2026.php#2026-10-21-5) | Running FPM/Apache module/container version, distro backport status, and retrospective evidence review |
+| PHP CVE-2026-109618 / CVE-2026-109619 | PHP serving web requests: PHP-FPM, Apache `mod_php`, php-cgi, FrankenPHP, LiteSpeed; highest risk for `mod_php` | 8.2.35, 8.3.36, 8.4.27, 8.5.12; no complete configuration mitigation | [PHP release notice](https://www.php.net/archive/2026.php#2026-10-21-5) | Running SAPI and version per worker pool or container, package source and backport status, interim hardening where patching is delayed, and retrospective evidence review |
 | Node.js October release | Supported 22.x, 24.x, 26.x lines | 22.23.4, 24.22.1, 26.12.1 | [Node.js advisory](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) | Every runtime: host, container, CI runner, bundled CLI/Electron app |
 | eMudhra intermediate compromise | Clients trusting affected intermediates and bundled Python trust stores | Update client trust data or apply vendor-supported blocklist; see packaging floors below | [Incident checker](https://emudhra.we-have-a-problem.com/) | Each client’s TLS trust decision for every chain in the current published list, plus controls |
 | LiteLLM supply-chain incident | PyPI or container artifacts in the stated window | Do not run affected environment; rebuild from a known-good pinned release | [LiteLLM incident report](https://docs.litellm.ai/blog/security-incident-oct-21-2026) | Filesystem/image metadata, deployment logs, and reachable credentials |
@@ -33,35 +33,111 @@ proof-of-concept code, or delete suspected malware before preserving evidence.
 
 ### CISA KEV context (2026-10-21)
 
-The official [CISA KEV catalog](https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json), version `2026.10.21` released at `2026-10-21T14:04:39.8983Z`, lists Ivanti CVE-2026-104935 (added October 13), BeyondTrust CVE-2026-102764 (October 16), and the four Plex CVEs (October 20). KEV listing establishes exploitation priority; it does not establish that any product is installed or deployed.
+The official [CISA KEV catalog](https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json), version `2026.10.21` released at `2026-10-21T14:04:39.8983Z`, lists Ivanti CVE-2026-104935 (added October 13), BeyondTrust CVE-2026-102764 (October 16), and the four Plex CVEs (October 20). The same catalog version, checked on 2026-10-22, does not list PHP CVE-2026-109618 or CVE-2026-109619 despite the exploitation reports in section 1; absence from KEV does not lower their priority. KEV listing establishes exploitation priority; it does not establish that any product is installed or deployed.
 
 ## 1. PHP request-processing vulnerabilities
 
 PHP reports that CVE-2026-109618 and CVE-2026-109619 can permit unauthenticated
-remote code execution. The upstream notice names out-of-memory handling and stale
-request state respectively. Treat web-facing PHP as urgent, including applications
-behind a proxy and administrative tools that receive HTTP requests.
+remote code execution as the web worker account. Both advisories rate the
+issues Critical with a CVSS v4.0 base score of 9.2. The upstream notice names
+out-of-memory handling and stale request state respectively.
 
-The upstream fixed release floors are 8.2.35, 8.3.36, 8.4.27, and 8.5.12. Older
-branches need a supported vendor backport or an upgrade path. A distribution
-package can be safe while its upstream-looking version is older, but only its
-distribution security tracker can establish that.
+| CVE | Issue | Exploitation precondition named by the advisory |
+| --- | --- | --- |
+| CVE-2026-109618 | Out-of-memory exit leaves partially initialized request data that request shutdown later trusts | An unauthenticated request, for example multipart input, drives the worker to its memory limit |
+| CVE-2026-109619 | Worker-retained state points to memory freed by an earlier request (use-after-free) | A producing and a consuming request reach the same persistent worker |
+
+### Scope by server API
+
+PHP's notice states that all installations serving web requests are at risk,
+naming PHP-FPM, Apache with `mod_php`, php-cgi, FrankenPHP, and LiteSpeed. It
+considers the risk highest for `mod_php`, where a demonstrated exploit runs
+from an unauthenticated request before any application code executes.
+Application-level controls therefore do not reduce `mod_php` exposure. The
+advisories describe FPM, LSAPI, and FrankenPHP exposure as conditional or
+unvalidated for some paths; treat them as affected until patched. Neither
+advisory addresses the CLI. Record CLI-only hosts as `unknown` rather than
+`not applicable` until a primary source states otherwise.
+
+Treat web-facing PHP as urgent, including applications behind a proxy and
+administrative tools that receive HTTP requests.
+
+### Fixed releases and unsupported branches
+
+The upstream fixed release floors are 8.2.35, 8.3.36, 8.4.27, and 8.5.12. PHP
+8.1 and older receive no upstream releases. Prefer a supported distribution or
+LTS-vendor backport, or an upgrade to a supported branch. For sites that build
+from source without such a vendor, the PHP security team published minimal
+source backports for 7.4, 8.0, and 8.1; record that as a source-build change
+with its own review and rollback plan. PHP 8.2 reaches end of life on
+2026-12-31, so a fix on 8.2 also needs a migration owner and deadline.
+
+A distribution package can be safe while its upstream-looking version is older,
+but only its distribution security tracker can establish that. Record where
+each runtime comes from. PHP's notice states that the volunteer-maintained
+`rpms.remirepo.net` repository would not have updates on the release day and
+recommends distribution packages or a source build instead; recheck that
+repository's status rather than assuming its packages contain the fix.
 
 Verify the version of the process actually serving traffic after rollout. Check
 the PHP SAPI, worker pool, container image digest, and restart state; a shell
-`php -v` alone does not prove the web workers changed.
+`php -v` alone does not prove the web workers changed. Every persistent worker
+must be restarted for either the fix or an interim setting to take effect.
 
-### PHP2Shell exploitation observed before disclosure
+### Interim hardening when patching is delayed
+
+PHP states that there are no complete mitigations and that updating is the
+only safe choice. The following measures from the PHP notice and advisories
+reduce specific attack paths only. Apply them through owner-approved change
+control as a short-lived bridge, record the residual risk, and keep the
+finding open until the fixed release is running.
+
+- Set `memory_limit=-1` where applications cannot override it, such as
+  `php_admin_value` in the FPM pool or Apache configuration. The vulnerable path
+  can still be reached if the system allocation itself fails.
+- Keep `post_max_size` low (the notice suggests `8M`, or `32M` where uploads are
+  required) with `upload_max_filesize` below it. Enforce decoded request size,
+  input field count, multipart part count, header count, and nesting depth at
+  the web server or proxy; block multipart requests where the application does
+  not use them.
+- Do not use `RLIMIT_AS` or `RLIMIT_DATA` as a substitute: they can cause the
+  vulnerable allocation failure. Container or cgroup memory limits may help but
+  are not guaranteed.
+- Set `session.upload_progress.enabled=0` in `php.ini`, the FPM pool, or server
+  configuration that applies before request parsing. `ini_set()` and FPM
+  `.user.ini` do not apply early enough. The advisory suggests keeping it off
+  after patching if the feature is unused.
+- On PHP 8.5, set `fatal_error_backtraces=0`. This blocks the confirmed fatal
+  backtrace path only.
+- Remove invalid or deprecated per-request settings that emit diagnostics before
+  request initialization. Hiding diagnostics with `error_reporting`,
+  `display_errors`, or `@` does not help.
+- Where performance allows, `pm.max_requests=1` limits FPM worker reuse for
+  CVE-2026-109619.
+
+Each change needs a positive check that the application still serves its normal
+requests and a record of the effective value in the running worker, not only in
+the configuration file.
+
+### PHP2Shell exploitation observed before and after disclosure
 
 AWS Threat Intelligence reports PHP2Shell exploitation attempts on 2026-10-17,
-before public disclosure. Investigate from at least 2026-10-17 through
+before public disclosure. watchTowr reports exploitation in the wild observed
+through its honeypot network from 2026-10-21. Neither source published
+indicators of compromise. Investigate from at least 2026-10-17 through
 remediation by reviewing retained logs, process evidence, and relevant file
 changes through the incident-response process without executing suspect material.
 Extend the review earlier when available evidence or updated source material
 requires it. October 17 is the earliest vendor-observed attempt, not proof that
 earlier exploitation did not occur. Record unavailable or expired retention as
 unknown. Applying a patch does not establish that prior exploitation did not
-occur. Source checked 2026-10-22: [AWS report](https://aws.amazon.com/blogs/security/amazon-threat-intelligence-identifies-php2shell-exploitation-prior-to-public-disclosure-in-madpot/).
+occur. Sources checked 2026-10-22: [AWS report](https://aws.amazon.com/blogs/security/amazon-threat-intelligence-identifies-php2shell-exploitation-prior-to-public-disclosure-in-madpot/) and [watchTowr FAQ](https://watchtowr.com/intelligence/php-cve-2026-109618-faq/).
+
+For review, the CVE-2026-109619 advisory recommends `log_errors=On`, a working
+`error_log`, and `error_reporting=E_ALL`, and states that clean logs do not prove
+an installation is safe. As an audit suggestion rather than a published
+indicator, include memory-exhaustion fatal errors, worker crashes or abnormal
+child exits, and unusual multipart requests in the reviewed window.
 
 ## 2. Node.js October security release
 
@@ -299,6 +375,7 @@ post-compromise assessment and evidence preservation in addition to patching.
 - [PHP advisory: CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w)
 - [PHP advisory: CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp)
 - [AWS Threat Intelligence: PHP2Shell](https://aws.amazon.com/blogs/security/amazon-threat-intelligence-identifies-php2shell-exploitation-prior-to-public-disclosure-in-madpot/)
+- [watchTowr PHP2Shell FAQ](https://watchtowr.com/intelligence/php-cve-2026-109618-faq/)
 - [Node.js October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
 - [eMudhra TLS-chain checker and incident explanation](https://emudhra.we-have-a-problem.com/)
 - [Python packaging guidance for the eMudhra incident](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576)

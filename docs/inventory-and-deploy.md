@@ -91,7 +91,18 @@ Check each serving path:
 - Apache: loaded PHP module or proxy FastCGI configuration, then the active
   Apache parent/worker process.
 - CGI/FastCGI: configured handler path and a safe application diagnostic.
+- FrankenPHP and LiteSpeed (LSAPI): the server or container identity, its
+  embedded PHP version, and the live worker processes.
 - Queue/cron workers: supervisor or scheduler command plus the live worker PID.
+
+Record the package source for every serving path: distribution package,
+third-party repository, official container image digest, LTS vendor, or source
+build. A vendor backport is established only by that source's security tracker.
+For each persistent worker pool, record when the workers last restarted relative
+to the fix; a running worker keeps the old binary and settings until restart.
+Some advisories scope impact by server API only. For example, the October 2026
+PHP advisories address web-serving SAPIs and do not address the CLI, so record a
+CLI-only path as `unknown` unless the advisory states otherwise.
 
 Do not expose a public `phpinfo()` endpoint. Record Composer and its lockfile
 separately from PHP; do not run `composer update` as a blanket response.
