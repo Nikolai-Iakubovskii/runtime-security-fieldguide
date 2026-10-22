@@ -18,7 +18,7 @@ proof-of-concept code, or delete suspected malware before preserving evidence.
 | --- | --- | --- | --- | --- |
 | PHP CVE-2026-109618 / CVE-2026-109619 | PHP handling requests | 8.2.35, 8.3.36, 8.4.27, 8.5.12 | [PHP release notice](https://www.php.net/archive/2026.php#2026-10-21-5) | Running FPM/Apache module/container version and distro backport status |
 | Node.js October release | Supported 22.x, 24.x, 26.x lines | 22.23.4, 24.22.1, 26.12.1 | [Node.js advisory](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) | Every runtime: host, container, CI runner, bundled CLI/Electron app |
-| eMudhra intermediate compromise | Clients trusting affected intermediates | Update client trust data or apply vendor-supported blocklist | [Incident checker](https://emudhra.we-have-a-problem.com/) | Each client’s TLS trust decision; 12-chain test plus a benign control |
+| eMudhra intermediate compromise | Clients trusting affected intermediates and bundled Python trust stores | Update client trust data or apply vendor-supported blocklist; see packaging floors below | [Incident checker](https://emudhra.we-have-a-problem.com/) | Each client’s TLS trust decision; 12-chain test plus a benign control |
 | LiteLLM supply-chain incident | PyPI or container artifacts in the stated window | Do not run affected environment; rebuild from a known-good pinned release | [LiteLLM incident report](https://docs.litellm.ai/blog/security-incident-oct-21-2026) | Filesystem/image metadata, deployment logs, and reachable credentials |
 | GitLab self-managed | GitLab CE/EE, not GitLab.com | 18.11.13, 19.0.10, 19.1.9, 19.2.9, 19.3.6, 19.4.3, 19.5.1 | [GitLab patch release](https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-5-1-released/) | Installed edition/version, exposed services, migration plan |
 | nginx | nginx builds and relevant configuration | 1.30.6 stable or 1.31.7 mainline upstream | [nginx advisories](https://nginx.org/en/security_advisories.html) | Distribution backports and directives/modules in use |
@@ -27,6 +27,13 @@ proof-of-concept code, or delete suspected malware before preserving evidence.
 | Rank Math PRO | Downloads or activations in the affected interval | 3.0.124 or later plus incident response when exposed | [Rank Math notice](https://rankmath.com/kb/pro-3-0-123-security-incident/) | Acquisition time, installed files, database and secret exposure |
 | n8n self-hosted | n8n instances under operator control | 1.123.85, 2.43.5, or 2.44.1 | [n8n community security update](https://community.n8n.io/t/security-update-14-october-2026/321284) | Current upstream release note and installed version; community post is vendor-hosted but not a CVE advisory |
 | AOMEI Backupper / AnyViewer | Windows endpoints where installed or historically installed | Preserve evidence and follow the investigation guidance | [Google Threat Intelligence report](https://cloud.google.com/blog/topics/threat-intelligence/investigating-ephemeral-supply-chain-tampering) | Product history, timestamps, indicators, and recovery plan; vendor remediation status is unverified here |
+| BeyondTrust Remote Support CVE-2026-102764 | Self-hosted Remote Support only when installed/deployed | BT26-05-RS for 24.3.1–26.2.3; older branches need a supported upgrade | [BeyondTrust BT26-05](https://www.beyondtrust.com/trust-center/security-advisories/bt26-05) | Deployment type, installed build, and patch state; do not infer SaaS status from a self-hosted version |
+| Plex Media Server | PMS installed and active, including NAS/container deployments | PMS 1.43.3.10861; Plex desktop 1.115.0 is separate | [Plex staff update](https://forums.plex.tv/t/important-security-update-for-plex-media-server-v1-43-2-and-earlier/942319/) | Product identity, active service/container, exposure before patch, and vendor recovery guidance |
+| Ivanti Connect Secure CVE-2026-104935 | ICS appliances only when present | Use the vendor-supported remediation path; fixed branch floors unverified here | [Volexity research](https://www.volexity.com/blog/2026/10/13/a-series-of-unauthenticated-events-chained-exploitation-of-ivanti-connect-secure-zero-days/) | Appliance/branch inventory, supported status, and authorized incident response |
+
+### CISA KEV context (2026-10-21)
+
+The official [CISA KEV catalog](https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json), version `2026.10.21` released at `2026-10-21T14:04:39.8983Z`, lists Ivanti CVE-2026-104935 (added October 13), BeyondTrust CVE-2026-102764 (October 16), and the four Plex CVEs (October 20). KEV listing establishes exploitation priority; it does not establish that any product is installed or deployed.
 
 ## 1. PHP request-processing vulnerabilities
 
@@ -71,6 +78,20 @@ behavior, prove a historical connection was clean, or prove absence of a
 man-in-the-middle attack. Prefer the client vendor’s update; use a documented
 vendor workaround only with a pinned checksum and an additive merge that retains
 existing blocked entries.
+
+Python packaging has several independent trust copies. The Python security
+announcement recommends `certifi` 2026.10.19 as the compatibility floor after
+the initial 2026.10.18 removal, and lists `pip` 26.2.2, `uv` 0.13.4,
+`sigstore` 4.5.1, and `pixi` 0.82.1 as incident-release floors. Updating an
+external `certifi` package or the operating-system store does not demonstrate
+that pip is fixed: pip vendors its own copy.
+
+Inspect suspect environments from a trusted clean runtime before starting them.
+New virtual environments, `ensurepip`, cached wheels, base images, bootstrap
+artifacts, and old image layers can reintroduce a pre-fix bundled trust store.
+After update or rebuild, repeat both the compromised-chain rejection test
+(controlled negative) and a benign HTTPS control (positive) from each client
+that will run in production.
 
 ## 4. LiteLLM 1.107.0 artifact compromise
 
@@ -180,6 +201,51 @@ administrative workstation, assess credentials and lateral access reachable from
 the endpoint, and use an approved recovery process. This guide does not verify
 a vendor-specific cleanup tool or a current vendor remediation release.
 
+## 12. BeyondTrust Remote Support
+
+BeyondTrust’s BT26-05 advisory identifies CVE-2026-102764 for Remote Support
+versions through 26.2.3. It provides BT26-05-RS for supported versions 24.3.1
+through 26.2.3 and directs older branches to a supported upgrade. BeyondTrust’s
+related post describes an August 29 zero-day and recommends applying the PRA
+patch as a precaution, while stating it has no confirmed PRA exploitation.
+
+This is conditional on a positive inventory result: distinguish a self-hosted
+Remote Support deployment from a vendor-operated SaaS service. For SaaS, verify
+the operator’s service notice; for self-hosted installations, verify the actual
+patch level rather than assuming a visible product version proves remediation.
+Patching addresses exposure, while evidence of compromise requires the owner’s
+incident-response process.
+
+## 13. Plex Media Server
+
+Plex staff confirmed exploitation of issues affecting Plex Media Server (PMS)
+1.43.2 and earlier, and named PMS 1.43.3.10861 as the security update. The
+notice lists CVE-2026-96652, CVE-2026-96654, CVE-2026-96655, and CVE-2026-96656.
+Plex desktop 1.115.0 is a separate product update; it is not evidence that a
+server is patched.
+
+Do not assume Plex is installed because a NAS, container host, or media library
+exists. First establish whether PMS is installed and active, including container
+and NAS packages. An instance exposed before patching needs incident-response
+assessment, not just an upgrade. Preserve evidence, follow the vendor’s
+session-revocation and known-good rebuild guidance with the responsible owner,
+and validate the intended service only after authorized recovery work.
+
+## 14. Ivanti Connect Secure
+
+Volexity reports chained exploitation of Ivanti Connect Secure (ICS) zero-days,
+including CVE-2026-104935. The cited government alert also treats the issue as
+an active-risk condition. The vendor advisory was inaccessible to this guide on
+the verification date, so this document does not state a fixed version or
+branch floor.
+
+Inventory only appliances that are actually ICS, recording their supported
+branch and management authority. For a confirmed appliance, follow Ivanti’s
+current supported remediation path and the organization’s authorized
+incident-response procedure; do not substitute an unsourced version comparison.
+Because exploitation is reported, a device exposed before remediation requires
+post-compromise assessment and evidence preservation in addition to patching.
+
 ## Suggested verification order
 
 1. Statically triage and isolate known or suspected malicious artifacts before
@@ -188,7 +254,9 @@ a vendor-specific cleanup tool or a current vendor remediation release.
    LiteLLM, WordPress, or Windows endpoint exposure.
 3. Identify internet-facing PHP, self-managed GitLab, and production nginx or
    Apache services in unaffected contexts.
-4. Inventory all Node, Java, Python, and container trust/runtime copies.
+4. Inventory all Node, Java, Python, and container trust/runtime copies; check
+   BeyondTrust, Plex, and Ivanti only after confirming they are installed and
+   deployed.
 5. Apply supported patches, restart only the intended service, and validate the
    application’s normal health path.
 6. Record installed, exposed, absent, and unknown separately. “Absent” requires
@@ -201,6 +269,8 @@ a vendor-specific cleanup tool or a current vendor remediation release.
 - [PHP advisory: CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp)
 - [Node.js October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
 - [eMudhra TLS-chain checker and incident explanation](https://emudhra.we-have-a-problem.com/)
+- [Python packaging guidance for the eMudhra incident](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576)
+- [uv advisory GHSA-hq85-5cpj-mr62](https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62)
 - [LiteLLM October 21 incident report](https://docs.litellm.ai/blog/security-incident-oct-21-2026)
 - [GitLab critical patch release](https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-5-1-released/)
 - [nginx security advisories](https://nginx.org/en/security_advisories.html)
@@ -209,3 +279,9 @@ a vendor-specific cleanup tool or a current vendor remediation release.
 - [Rank Math PRO incident notice](https://rankmath.com/kb/pro-3-0-123-security-incident/)
 - [n8n community security update](https://community.n8n.io/t/security-update-14-october-2026/321284)
 - [Google Threat Intelligence: AOMEI / AnyViewer](https://cloud.google.com/blog/topics/threat-intelligence/investigating-ephemeral-supply-chain-tampering)
+- [BeyondTrust BT26-05 advisory](https://www.beyondtrust.com/trust-center/security-advisories/bt26-05)
+- [BeyondTrust BT26-05 incident update](https://www.beyondtrust.com/blog/entry/bt26-05)
+- [Plex staff security update](https://forums.plex.tv/t/important-security-update-for-plex-media-server-v1-43-2-and-earlier/942319/)
+- [Volexity research: Ivanti Connect Secure](https://www.volexity.com/blog/2026/10/13/a-series-of-unauthenticated-events-chained-exploitation-of-ivanti-connect-secure-zero-days/)
+- [Singapore CSA alert AL-2026-147](https://www.csa.gov.sg/alerts-and-advisories/alerts/al-2026-147/)
+- [CISA Known Exploited Vulnerabilities catalog](https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json)

@@ -135,13 +135,14 @@ metadata can identify a package version without executing `sitecustomize`,
 ```bash
 # Static metadata only; adapt this approved virtual-environment root.
 venv_root=/approved/virtual-environments
-find "$venv_root" -type f -path '*/certifi-*.dist-info/METADATA' -print | head -50
-rg -n -m 1 '^Version:' "$venv_root"/*/lib/python*/site-packages/certifi-*.dist-info/METADATA
+find "$venv_root" -type f \( -path '*/certifi-*.dist-info/METADATA' -o \
+  -path '*/pip-*.dist-info/METADATA' -o -path '*/uv-*.dist-info/METADATA' \) \
+  -exec rg -H -n -m 1 '^Version:' {} \; | head -100
 ```
 
 Before activating an environment implicated in a supply-chain incident, verify
 the incident window and affected artifacts from the publisher's advisory. Use a
-trusted installer or package tool to repair a confirmed environment; do not run
+trusted clean installer or known-good package tool to repair a confirmed environment; do not run
 an untrusted `pip`, project script, or arbitrary package import merely to
 inspect it.
 
@@ -150,7 +151,18 @@ and update the lockfile when it is tracked. Reconcile the active virtual
 environment afterward. A `certifi` version alone is insufficient: the actual
 client may use the OS store, a custom bundle, a proxy, or a vendor store.
 
-Run the package manager's consistency check and relevant tests. Record unmanaged
+Package managers can carry vendored CA bundles independent of the virtual
+environment's `certifi` and OS store. For the 2026 CA incident, the pip 26.2.2
+floor is independent of the venv `certifi` version; OS distrust or `PIP_CERT`
+alone does not prove an old pip is fixed. uv's default bundled store is likewise
+independent of system roots unless system or custom roots were explicitly selected.
+Use the exact version-floor table in [October 2026 advisories](october-2026-advisories.md).
+
+New environments, `ensurepip`, bootstrap wheels, and cached image layers can
+reintroduce old package-manager copies. Use a trusted clean installer or known-good
+rehydration process, obtain the fix from an independently trusted channel, and
+verify its published hash or signature; never use `-k` to self-update. Run the
+package manager's consistency check and relevant tests. Record unmanaged
 environments rather than inventing a manifest only to make inventory look tidy.
 
 ## 6. Trust stores and TLS probes

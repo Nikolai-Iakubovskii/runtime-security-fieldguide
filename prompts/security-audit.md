@@ -1,6 +1,6 @@
 # Runtime Security Audit Prompt
 
-Use this prompt as a scoped, evidence-first request for an engineer or coding agent. The full guide is available at <https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide>; consult its [inventory and deployment evidence](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/inventory-and-deploy.md), [trust-store verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/trust-stores.md), [database TLS verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/database-tls.md), and [October 2026 advisory snapshot](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/october-2026-advisories.md) when they apply.
+Use this prompt as a scoped, evidence-first request for an engineer or coding agent. The full guide is available at <https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide>; consult its [inventory and deployment evidence](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/inventory-and-deploy.md), [trust-store verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/trust-stores.md), [database TLS verification](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/database-tls.md), [October 2026 advisory snapshot](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/october-2026-advisories.md), and [advisory triage and coverage gaps](https://github.com/Nikolai-Iakubovskii/runtime-security-fieldguide/blob/main/docs/advisory-triage.md) when they apply.
 
 ---
 
@@ -35,6 +35,10 @@ Use current primary sources: vendor security advisories, maintainer release note
 
 Do not claim the environment is fully secure or historically uncompromised. Use `unknown` when evidence is missing. Separate production exposure from development-only tooling and vendor-controlled components.
 
+Treat news, comments, unverified forums, and community posts as leads. An authenticated vendor or maintainer security announcement on its official forum can be a primary source; otherwise confirm findings with a primary vendor, maintainer, government, or first-party research source. Record checked time, source publication time, incident window, and evidence window separately. Queue current vendor feeds, official package advisories, CISA KEV, FIRST EPSS, first-party research, authenticated vendor/maintainer forum announcements, and other forums/Reddit as leads only. Prioritize confirmed exploitation with deployed presence, reachability, privilege, and impact; EPSS is a 30-day probability estimate, not severity or proof of affectedness. Do not claim a CVE is in KEV without checking the data.
+
+Ask whether admin planes, VPN/remote-support paths, NAS/media appliances, editor extensions, and MCP/connectors are present. For extensions and MCP/connectors, capture origin, version, local or remote executor, effective permissions, authentication boundary, and session/secret reach. Review exact official known-issues guidance before an OS or runtime update; plan a focused pilot and rollback, confirm pending reboot/service reload, and test the owner’s actual auth, VPN, Wi-Fi, remote-desktop, and workload paths. Never use a forum workaround that weakens TLS or downgrades authentication.
+
 ## Safe inspection of unfamiliar environments
 
 Before executing project Python, package installers, lifecycle hooks, or repository scripts in an unfamiliar or potentially compromised environment, inspect static files first: manifests, lockfiles, task definitions, service units, Dockerfiles, CI workflows, and dependency hooks. Avoid executing unreviewed code merely to obtain version information.
@@ -68,11 +72,13 @@ Never solve a trust failure by disabling certificate verification, accepting any
 
 ## Confirmed malicious artifacts
 
-If static inspection or other evidence confirms a malicious artifact, follow the applicable incident-response process: isolate the affected workload within owner authority, preserve evidence, rebuild from a known-clean source, rotate credentials from a known-clean administrative environment, and verify the rebuilt deployment. Do not execute the artifact, run package hooks, or publish sensitive evidence.
+If static inspection or other evidence confirms execution of a malicious artifact or another compromise indicator, follow the applicable incident-response process: isolate the affected workload within owner authority, preserve evidence, rebuild from a known-clean source, rotate credentials from a known-clean administrative environment, and verify the rebuilt deployment. Do not execute the artifact, run package hooks, or publish sensitive evidence. A vulnerable deployed package without compromise evidence still requires exposure-driven investigation and an approved remediation decision.
+
+For a compromised bootstrap path, obtain fixes through an independently trusted channel. A checksum from the same potentially untrusted channel is not independent proof. Include image/package caches, `ensurepip`, and new virtual environments in the recheck because they can reintroduce old runtime or trust-store state.
 
 ## Report format
 
-Use `templates/audit-report.md`. For every finding include: ID, scope, baseline, deployed runtime, CA/trust source, evidence, source, finding, status, fix owner, rollback, and recheck trigger. Timestamp all evidence. Clearly distinguish:
+Use `templates/audit-report.md`. For every finding include: ID, scope, baseline, deployed runtime, CA/trust source, advisory/exploitation status and window, regression state, coverage owner, evidence, source, finding, status, fix owner, rollback, and recheck trigger. Timestamp all evidence. Clearly distinguish:
 
 - fixed and verified;
 - affected but not yet fixed;

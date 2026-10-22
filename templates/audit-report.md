@@ -17,13 +17,17 @@
 | Deployed runtime | `process/service/image digest/workload revision` |
 | Installed runtime | `package/runtime version and source` |
 | CA/trust source | `OS/language/application/container/client trust store` |
+| Advisory / exploitation status | `CVE/advisory, KEV/EPSS check date, confirmed-exploitation status` |
+| Incident and evidence windows | `relevant acquisition/exposure period; telemetry reviewed` |
+| Regression state | `exact build/configuration known issues; pilot/rollback/pending restart` |
+| Coverage owner | `owner for admin, appliance, extension, or connector surface` |
 | Evidence timestamp | `YYYY-MM-DDThh:mm:ssZ` |
 
 ## Findings
 
-| ID | Component | Environment | Finding | Source | Evidence | Status | Fix owner | Rollback | Recheck trigger |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `RSA-001` | `runtime` | `production` | `description` | `primary source URL` | `redacted evidence reference` | `open` | `role` | `documented step` | `new advisory or upgrade` |
+| ID | Component | Environment | Finding | Advisory / window | Regression / coverage owner | Source | Evidence | Status | Fix owner | Rollback | Recheck trigger |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `RSA-001` | `runtime` | `production` | `description` | `status and dates` | `state / role` | `primary source URL` | `redacted evidence reference` | `open` | `role` | `documented step` | `new advisory or upgrade` |
 
 ## Certificate and database-client checks
 
