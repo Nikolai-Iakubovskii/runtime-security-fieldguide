@@ -288,10 +288,34 @@ affected index before running `ALTER DATABASE ... REFRESH COLLATION VERSION`;
 that command records the provider version and must not be used to hide a
 warning. `REINDEX ... CONCURRENTLY` has documented eligibility and transaction
 limits, and provider-owned objects may require a provider procedure rather than
-customer grants or ownership changes. Abort on a failed rebuild and record
-invalid or temporary index artifacts for repair. [REINDEX](https://www.postgresql.org/docs/17/sql-reindex.html)
-and [ALTER DATABASE](https://www.postgresql.org/docs/17/sql-alterdatabase.html)
+customer grants or ownership changes. `REINDEX INDEX` and `REINDEX TABLE`
+require `MAINTAIN` on the underlying table, while `REINDEX DATABASE` can use
+the current database owner or `pg_maintain` and can include indexes owned by
+other roles; do not add roles or privileges blindly. Abort on a failed rebuild,
+record excluded skips, and clear every affected physical rebuild artifact,
+including numeric `_ccnewN` or `_ccoldN` names, before refreshing the version.
+[REINDEX](https://www.postgresql.org/docs/17/sql-reindex.html) and
+[ALTER DATABASE](https://www.postgresql.org/docs/17/sql-alterdatabase.html)
 define these boundaries.
+
+For managed PostgreSQL upgrades to 15.19 or 17.11, check the provider's current
+upgrade caveats before approving the window. Supabase lists these bounded cases:
+
+- `ltree` indexes under multibyte encoding or a non-libc provider, and B-tree
+  `ltree` values with more than 14,653 labels, need applicability review and
+  potentially a physical rebuild.
+- `btree_gist` float indexes require review only where `NaN` values can occur.
+- CVE-2026-14663 affects pgcrypto PGP calls that request an unavailable
+  `cipher-algo`; AES defaults are unaffected, and extension installation alone
+  is not evidence of use.
+- Non-built-in operator selectivity estimators can prevent logical restore or
+  branch recreation without a superuser; test the approved recovery path before
+  relying on it.
+
+Use the provider's published applicability queries and remediation procedure;
+these cases do not authorize a broad reindex or new database privileges.
+[Supabase upgrade caveats](https://supabase.com/docs/guides/platform/upgrading)
+are specific to its managed service and must be rechecked for another provider.
 
 If logical replication crosses the upgrade, treat it as a separate release
 boundary: record the intended publications, subscriptions or replicas, initial
@@ -306,6 +330,28 @@ the host that ran the client. A cached query result is not proof that the live
 managed endpoint is the one observed; use the client's documented cache-bypass
 mechanism or a unique audit comment, without logging connection details. See
 the [database TLS guide](database-tls.md) for strict connection controls.
+
+### 8b. Metabase application-database connection details at rest
+
+Treat the Metabase application database as distinct from the data warehouse.
+For a version-pinned Metabase release, audit authorized plaintext exposure and
+a non-secret sentinel before conversion; take a fresh rollback, then verify the
+encryption key from an off-host recovery location before any change. Supply
+`MB_ENCRYPTION_SECRET_KEY` through a protected environment or secret mechanism,
+never a command argument. An existing application database requires the
+documented one-time `enable-encryption` procedure. Where supported by the
+pinned release, set `MB_DISABLE_LEGACY_STARTUP_ENCRYPTION=true` so unexpected
+plaintext fails closed; verify the supported behavior before production. A key
+mismatch must fail rather than be silenced. [Application database](https://www.metabase.com/docs/latest/installation-and-operation/configuring-application-database)
+and [connection-detail encryption](https://www.metabase.com/docs/latest/databases/encrypting-details-at-rest)
+define the supported boundary.
+
+Prove the result with an isolated scratch restore using the approved key and a
+controlled wrong-key failure, then take a fresh encrypted rollback. Verify
+startup and use distinct uncached read-only warehouse queries; a cached result
+does not prove decrypted connection details work. Record the retention or
+destruction decision for legacy plaintext copies explicitly, and retain no
+plaintext material beyond the approved recovery period.
 
 ## 9. Build, deploy, and prove the rollout
 
