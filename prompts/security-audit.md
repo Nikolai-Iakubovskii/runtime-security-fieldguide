@@ -66,6 +66,30 @@ Use current primary sources: vendor security advisories, maintainer release note
 
 Do not claim the environment is fully secure or historically uncompromised. Use `unknown` when evidence is missing. Separate production exposure from development-only tooling and vendor-controlled components.
 
+For a proxy or web-server advisory, record the effective listener protocol,
+enabled modules, relevant directives, upstream proxy path, and the actual
+deployed binary or image. Compare distribution packages with their own security
+tracker and changelog, because an upstream-looking version can contain a
+backport and an upstream fixed version does not prove a vendor package has it.
+Record where a protocol terminates at an edge or CDN and at the origin; inspect
+both legacy and current directive forms in the effective configuration. Verify
+that a post-update process or rollout executes the intended binary, because a
+configuration reload can retain an old executable.
+If a temporary configuration mitigation disables a protocol or feature, record
+the affected advisory paths, compatibility impact, rollback, and a controlled
+negative check showing that the disabled path is unavailable. Do not close other
+advisories merely because one feature was disabled, and report the item as
+mitigated until the vendor fix is deployed.
+
+For Dependabot or another hosted alert feed, distinguish an unreadable or
+disabled feed from an enabled feed reporting zero alerts. When the feed cannot
+be read, immediately run the package manager's supported production-only
+lockfile audit, such as `npm audit --omit=dev` or `pnpm audit --prod`, where the
+ecosystem supports it. Record the lockfile and audit-data time. Report flagged
+packages and inherited alerts separately from unique advisories, then map each
+relevant result to the built artifact or image and its running identity. A clean
+lockfile audit does not prove the running build used that lockfile.
+
 Treat news, comments, unverified forums, and community posts as leads. An authenticated vendor or maintainer security announcement on its official forum can be a primary source; otherwise confirm findings with a primary vendor, maintainer, government, or first-party research source. Record checked time, source publication time, incident window, and evidence window separately. Queue current vendor feeds, official package advisories, CISA KEV, FIRST EPSS, first-party research, authenticated vendor/maintainer forum announcements, and other forums/Reddit as leads only. Prioritize confirmed exploitation with deployed presence, reachability, privilege, and impact; EPSS is a 30-day probability estimate, not severity or proof of affectedness. Do not claim a CVE is in KEV without checking the data.
 
 Ask whether admin planes, VPN/remote-support paths, NAS/media appliances, editor extensions, and MCP/connectors are present. For extensions and MCP/connectors, capture origin, version, local or remote executor, effective permissions, authentication boundary, and session/secret reach. Review exact official known-issues guidance before an OS or runtime update; plan a focused pilot and rollback, confirm pending reboot/service reload, and test the owner’s actual auth, VPN, Wi-Fi, remote-desktop, and workload paths. Never use a forum workaround that weakens TLS or downgrades authentication.

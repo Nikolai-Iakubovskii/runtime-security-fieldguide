@@ -7,7 +7,7 @@ An evidence-led, vendor-neutral guide for reviewing runtime security across appl
 
 This is a documentation repository. It provides a repeatable audit method, reporting format, and an agent prompt. It does not provide a scanner, an updater, or instructions to mutate a host automatically.
 
-**Snapshot date:** 2026-10-22. Claims describe a review method and should be rechecked against current primary sources before use.
+**Snapshot date:** 2026-11-18. Dated advisory notes retain their original check dates. Claims describe a review method and should be rechecked against current primary sources before use.
 
 ## Start here
 
@@ -78,6 +78,7 @@ Do not call a finding resolved merely because a package manager reports a newer 
 - [Application security review](docs/application-security.md)
 - [Mobile security review](docs/mobile-security.md)
 - [October 2026 advisory research notes](docs/october-2026-advisories.md)
+- [November 2026 nginx HTTP/2 advisory triage](docs/november-2026-nginx-http2-advisories.md)
 - [Advisory triage, coverage gaps, and patch regression](docs/advisory-triage.md)
 - [Audit report template](templates/audit-report.md)
 - [Copyable security-audit prompt](prompts/security-audit.md)
