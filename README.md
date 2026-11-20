@@ -66,6 +66,7 @@ Do not call a finding resolved merely because a package manager reports a newer 
 5. Classify each item as fixed, affected, not applicable, unknown, or vendor-owned limitation.
 6. Propose the smallest compatible remediation with rollback steps. Do not apply it without the required owner authorization.
 7. Verify the deployed result and its health, then record an explicit recheck trigger such as a new vendor advisory, runtime upgrade, certificate rotation, or image rebuild.
+8. Between full audits, run the [weekly review flow](docs/weekly-review.md): KEV and vendor delta, condition checks, installed-versus-running comparison, and dependency coverage.
 
 ## Documentation map
 
@@ -78,7 +79,9 @@ Do not call a finding resolved merely because a package manager reports a newer 
 - [Application security review](docs/application-security.md)
 - [Mobile security review](docs/mobile-security.md)
 - [October 2026 advisory research notes](docs/october-2026-advisories.md)
+- [November 2026 advisory verification guide](docs/november-2026-advisories.md)
 - [November 2026 nginx HTTP/2 advisory triage](docs/november-2026-nginx-http2-advisories.md)
+- [Weekly security review flow](docs/weekly-review.md)
 - [Advisory triage, coverage gaps, and patch regression](docs/advisory-triage.md)
 - [Audit report template](templates/audit-report.md)
 - [Copyable security-audit prompt](prompts/security-audit.md)

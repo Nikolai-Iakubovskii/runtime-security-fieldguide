@@ -29,6 +29,13 @@ For each in-scope application, worker, container, host, and CI runner, record bo
 
 Do not equate an installed package with a running process, an image tag with a digest, or the presence of a CA file with a client actually using it.
 
+Record pending reboots and restarts as findings: compare the running kernel with
+the newest installed kernel, read the distribution's reboot-required markers,
+and compare long-lived process start times with the install time of their
+runtime packages. Compare a macOS host's running version with the newest offered
+update and its Homebrew services with the outdated list. An installed security
+update that is not running is not fixed.
+
 ## Dependency coverage and lifecycle
 
 Complete the coverage matrix in `docs/dependency-security.md` for every source
@@ -80,6 +87,13 @@ the affected advisory paths, compatibility impact, rollback, and a controlled
 negative check showing that the disabled path is unavailable. Do not close other
 advisories merely because one feature was disabled, and report the item as
 mitigated until the vendor fix is deployed.
+
+For each advisory, record the exploitability condition (protocol, module,
+build option, authentication mode, or code path) and check it against the
+effective configuration before rating urgency. For a malicious-package advisory,
+search installed environments, image layers, tool installers, and CI caches, and
+inspect Python `.pth` startup files, because a lockfile does not show what an
+earlier install left behind.
 
 For Dependabot or another hosted alert feed, distinguish an unreadable or
 disabled feed from an enabled feed reporting zero alerts. When the feed cannot
