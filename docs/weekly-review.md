@@ -83,6 +83,26 @@ or reboot so the new code runs, then verify the process identity, a normal
 request through the real route, and the service's own health check. Record a
 rollback path before the change.
 
+Checks that caught real problems during the first run of this flow:
+
+- After a reboot, list failed units (`systemctl --failed`). A configuration
+  error that only bites at boot, such as a malformed `sysctl.d` line, can sit
+  unnoticed for months while the setting was applied once by hand.
+- Compare the candidate version on each host. Regional package mirrors can lag
+  by days, so one host may not be offered a kernel that its peers already run.
+  Record the lagging host as pending rather than fixed.
+- Rebuild out-of-tree kernel modules (for example DKMS) for the new kernel and
+  confirm the build before rebooting.
+- A service manager can rename a service on restart. Homebrew now registers
+  services as `sh.brew.<formula>`, while services first started by an older
+  Homebrew keep the `homebrew.mxcl.<formula>` label until the next restart.
+  Scripts and health checks that name the label need to accept both.
+- Keep the previous runtime versions until the restarted services have run
+  cleanly, so that rollback does not need a download.
+- Restart the services that listen for network connections onto the new runtime
+  in the same window, and list the remaining long-running jobs that will pick
+  it up on their next restart.
+
 ## 6. Record and schedule
 
 For each item record the advisory, the asset, the condition check, the state
