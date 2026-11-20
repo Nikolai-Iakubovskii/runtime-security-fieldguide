@@ -1,8 +1,8 @@
 # November 2026 nginx HTTP/2 Advisory Triage
 
-**Checked:** 2026-11-18  
+**Checked:** 2026-11-18; distribution status, researcher disclosure, and KEV status updated 2026-11-20  
 **Scope:** nginx Open Source and NGINX Plus deployments, including distribution packages and container images.  
-**Primary sources:** [nginx security advisories](https://nginx.org/en/security_advisories.html), [nginx 1.30.7 release](https://github.com/nginx/nginx/releases/tag/release-1.30.7), [F5 CVE-2026-123007 advisory](https://my.f5.com/manage/s/article/K000163926), [F5 CVE-2026-123633 advisory](https://my.f5.com/manage/s/article/K000163928), [Ubuntu CVE-2026-123007 tracker](https://ubuntu.com/security/CVE-2026-123007), and [Ubuntu CVE-2026-123633 tracker](https://ubuntu.com/security/CVE-2026-123633).
+**Primary sources:** [nginx security advisories](https://nginx.org/en/security_advisories.html), [nginx 1.30.7 release](https://github.com/nginx/nginx/releases/tag/release-1.30.7), [F5 CVE-2026-123007 advisory](https://my.f5.com/manage/s/article/K000163926), [F5 CVE-2026-123633 advisory](https://my.f5.com/manage/s/article/K000163928), [Ubuntu CVE-2026-123007 tracker](https://ubuntu.com/security/CVE-2026-123007), [Ubuntu CVE-2026-123633 tracker](https://ubuntu.com/security/CVE-2026-123633), [Debian CVE-2026-123007 tracker](https://security-tracker.debian.org/tracker/CVE-2026-123007), [nginx2root researcher disclosure](https://nginx2root.com/), and the [CISA KEV feed](https://www.cisa.gov/known-exploited-vulnerabilities-catalog).
 
 ## Decision record
 
@@ -34,6 +34,26 @@ when PROXY protocol version 2 is used and is fixed in 1.31.9. Assess it from the
 effective listener configuration and upgrade it on its own path. The listed
 1.30.7 stable release is not its fixed branch.
 
+## Researcher disclosure and exploitation status
+
+The finder's disclosure site, [nginx2root.com](https://nginx2root.com/),
+attributed to Xint, groups CVE-2026-123007, CVE-2026-123633, CVE-2026-123634
+(resolver), CVE-2026-121810 (HTTP/3), and CVE-2026-113425 (mail proxy) and
+claims a path from a remote client to root on the server host. At the
+2026-11-20 check the vendor and distribution sources read for this note
+described worker crashes, denial of service, and code execution in the worker
+process where ASLR is disabled or bypassed. They did not describe a privilege
+escalation from the worker user to root. Treat the root claim as the
+researcher's claim until the full write-up or a vendor statement is reviewed,
+and do not lower priority because of that gap: code execution in a worker can
+expose TLS private keys, upstream credentials, and proxied traffic.
+
+At the 2026-11-20 check, none of the November nginx CVEs was in the CISA KEV
+catalog (catalog version 2026.11.18). This note did not establish whether
+public exploit code exists. Recheck KEV, the researcher site, and vendor
+advisories before closing; an exploit release or KEV listing raises the urgency
+of every unpatched HTTP/2 listener.
+
 ## Inventory and applicability
 
 Record the package or image provenance, full build version, active binary path,
@@ -42,6 +62,15 @@ and the HTTP protocol negotiated by a controlled client. Record the proxied
 upstream and `worker_connections` evidence for CVE-2026-123633. A package-manager
 version, image tag, or static configuration file alone does not prove what is
 serving traffic.
+
+When a repository is the starting point, search for every place nginx can enter
+a deployment: `nginx.conf` and site files, configuration templates and heredocs
+in setup scripts, package installs (`apt-get install nginx`, `apk add nginx`, and
+similar), Dockerfile `FROM` lines and Compose or Kubernetes images that ship
+nginx or OpenResty, ingress controller charts, and deployment runbooks. A
+repository shows intended configuration only. Map each hit to a running host or
+image before rating it, and record a hit with no known deployment as `unknown`
+rather than as safe.
 
 Identify where HTTP/2 terminates. HTTP/2 enabled at a CDN edge does not establish
 that the origin nginx accepts HTTP/2, and an origin setting does not establish the
@@ -57,9 +86,27 @@ distribution package includes the fix. Check the relevant distribution security
 tracker, package changelog, and installed package build, then verify the running
 process or rebuilt image. The Ubuntu tracker applies to Ubuntu-distributed nginx
 packages. nginx.org or other third-party packages installed on Ubuntu require
-their own package provenance and vendor advisory. At the checked time, Ubuntu
-marked supported nginx packages vulnerable for both CVEs, so an Ubuntu package
-needs a later explicit vendor status before it can be closed.
+their own package provenance and vendor advisory. On 2026-11-18 Ubuntu marked
+supported nginx packages vulnerable for both CVEs. On 2026-11-19 Ubuntu
+published USN-9159-1 with fixed builds for both CVEs; at the 2026-11-20 check
+the trackers listed, for example, `1.24.0-2ubuntu7.20` for 24.04 LTS,
+`1.28.3-2ubuntu1.13` for 26.04 LTS, and `1.18.0-6ubuntu14.23` for 22.04 LTS.
+Older releases are fixed only through ESM or Ubuntu Pro packages. Read the
+tracker for the exact release rather than copying these values.
+
+At the same check the Debian tracker for CVE-2026-123007 listed fixes in
+trixie security (`1.26.3-3+deb13u11`, DSA-6642-1), bookworm security
+(`1.22.1-9+deb12u11`, DLA-4918-1), and sid (`1.30.6-4`), and still listed
+forky `1.30.6-3` as vulnerable. Check the Debian tracker for CVE-2026-123633
+separately; this note did not record it.
+
+Products that bundle their own nginx build, such as virtual appliances, hosting
+control panels, Kubernetes ingress controllers, and vendor VM images, need that
+product vendor's fixed build or image. The host operating system's nginx
+package status does not cover a bundled binary. For example, the 1C-Bitrix
+security team announced a `bx-nginx` 1.30.7 build for its VM and environment
+packages in a [Russian-language post](https://habr.com/ru/articles/1109970/).
+Record each bundled product as its own inventory item.
 
 ## Remediation and closure
 

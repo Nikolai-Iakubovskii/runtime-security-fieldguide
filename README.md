@@ -7,7 +7,7 @@ An evidence-led, vendor-neutral guide for reviewing runtime security across appl
 
 This is a documentation repository. It provides a repeatable audit method, reporting format, and an agent prompt. It does not provide a scanner, an updater, or instructions to mutate a host automatically.
 
-**Snapshot date:** 2026-11-18. Dated advisory notes retain their original check dates. Claims describe a review method and should be rechecked against current primary sources before use.
+**Snapshot date:** 2026-11-20. Dated advisory notes retain their original check dates. Claims describe a review method and should be rechecked against current primary sources before use.
 
 ## Start here
 
