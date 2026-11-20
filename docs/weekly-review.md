@@ -102,6 +102,20 @@ Checks that caught real problems during the first run of this flow:
 - Restart the services that listen for network connections onto the new runtime
   in the same window, and list the remaining long-running jobs that will pick
   it up on their next restart.
+- Turn on the registry's image scanning before the next push, then read the
+  operating-system findings against what the service process loads. An
+  official runtime image can carry a vulnerable system `libssl` or `zlib`
+  while the runtime binary links its own bundled copies; record the package,
+  the distribution fix, whether the process loads it, and the base-image
+  rebuild as the recheck trigger.
+- A major-version library fix can change runtime behaviour that type checks
+  do not catch, such as default-value handling or record-key exhaustiveness.
+  Run the full tests for every schema consumer before deploying it, and keep a
+  low-reachability finding open as a planned task rather than forcing the
+  upgrade into a security hotfix.
+- Treat an optional hardening dependency that fails to import as a finding.
+  A guarded import that falls back silently can switch a protection off for
+  weeks; log a warning when it is missing.
 
 ## 6. Record and schedule
 
